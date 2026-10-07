@@ -26,7 +26,7 @@ AWS SAM 範本會建立：私有來源 S3、私有前端 S3、CloudFront、兩�
 ```text
 apps/dashboard/        Dashboard、Lambda Handler、共用規則與自動測試
 infrastructure/aws/    AWS SAM / CloudFormation 範本
-synthetic-data/        合成 XLSX 範例與產生器
+synthetic-data/        合成 XLSX 範例與格式規格
 docs/architecture/     架構與資料模型設計
 docs/deployment/       部署、設定、驗證、清理與資源盤點
 scripts/               本機驗證與前端發布腳本
