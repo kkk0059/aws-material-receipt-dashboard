@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">AWS Serverless 物料點收管理看板簡化架構圖</title>
+  <desc id="desc">合成 Excel 上傳至私有 S3，S3 事件觸發 Processor Lambda，解析結果寫入 DynamoDB。管理者透過 CloudFront 管理看板與 API Gateway 查詢，API Lambda 讀取 DynamoDB 並產生來源文件短效連結。IAM、CloudWatch 與 AWS SAM 提供權限、日誌與部署管理。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F9FBFC"/>
+      <stop offset="1" stop-color="#EEF4F7"/>
+    </linearGradient>
+    <linearGradient id="head" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#213040"/>
+      <stop offset="1" stop-color="#314A5D"/>
+    </linearGradient>
+    <marker id="orange" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0L14 7L0 14Z" fill="#E87919"/>
+    </marker>
+    <marker id="teal" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0L14 7L0 14Z" fill="#087F8C"/>
+    </marker>
+    <style>
+      text { font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif; fill: #172B3A; }
+      .title { font-size: 42px; font-weight: 700; }
+      .subtitle { font-size: 20px; fill: #5D6B78; }
+      .cloud-title { font-size: 25px; font-weight: 700; fill: #FFFFFF; }
+      .cloud-sub { font-size: 16px; fill: #D8E3EB; }
+      .lane { font-size: 18px; font-weight: 700; }
+      .node-title { font-size: 23px; font-weight: 700; }
+      .node-sub { font-size: 16px; fill: #566573; }
+      .node-small { font-size: 14px; fill: #6B7B88; }
+      .flow { font-size: 15px; font-weight: 700; }
+      .gov-title { font-size: 18px; font-weight: 700; }
+      .gov-sub { font-size: 13px; fill: #64748B; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="13" fill="#FF9900"/>
+  <text x="65" y="67" class="title">AWS Serverless 物料點收管理看板｜專題簡化架構</text>
+  <text x="67" y="105" class="subtitle">只保留完成專題真正需要的服務｜Synthetic Demo Data｜低成本、低維護、可重現</text>
+
+  <!-- External user -->
+  <rect x="45" y="356" width="220" height="250" rx="26" fill="#FFFFFF" stroke="#C9D5DE" stroke-width="2"/>
+  <circle cx="155" cy="424" r="38" fill="#E4F4F4"/>
+  <circle cx="155" cy="411" r="14" fill="none" stroke="#087F8C" stroke-width="5"/>
+  <path d="M126 457c9-24 49-24 58 0" fill="none" stroke="#087F8C" stroke-width="5" stroke-linecap="round"/>
+  <text x="155" y="505" text-anchor="middle" class="node-title" font-size="20">管理者／Demo 操作者</text>
+  <text x="155" y="540" text-anchor="middle" class="node-sub">上傳合成檔</text>
+  <text x="155" y="567" text-anchor="middle" class="node-sub">查詢工單與開啟文件</text>
+
+  <!-- AWS Cloud -->
+  <rect x="300" y="145" width="1560" height="835" rx="34" fill="#FFFFFF" stroke="#AAB8C4" stroke-width="3" stroke-dasharray="10 8"/>
+  <path d="M334 145h1492a34 34 0 0 1 34 34v72H300v-72a34 34 0 0 1 34-34z" fill="url(#head)"/>
+  <text x="350" y="192" class="cloud-title">AWS Cloud｜Serverless Prototype</text>
+  <text x="350" y="222" class="cloud-sub">不使用 EC2、RDS、VPC 或 NAT Gateway；依實際請求量計費</text>
+  <rect x="1612" y="168" width="188" height="45" rx="22" fill="#FF9900"/>
+  <text x="1706" y="197" text-anchor="middle" font-size="15" font-weight="700" fill="#FFFFFF">SYNTHETIC DATA ONLY</text>
+
+  <!-- Lanes -->
+  <rect x="330" y="280" width="1498" height="250" rx="24" fill="#FCF8F4" stroke="#F0D6BF"/>
+  <rect x="330" y="550" width="1498" height="250" rx="24" fill="#F5FAFA" stroke="#CCE5E4"/>
+  <rect x="330" y="820" width="1498" height="125" rx="24" fill="#F5F7F9" stroke="#D7E0E6"/>
+  <rect x="350" y="299" width="157" height="35" rx="17" fill="#FFF0E3"/>
+  <text x="428" y="323" text-anchor="middle" class="lane" fill="#B45309">① 檔案匯入流程</text>
+  <rect x="350" y="569" width="157" height="35" rx="17" fill="#E5F5F4"/>
+  <text x="428" y="593" text-anchor="middle" class="lane" fill="#087F8C">② 看板查詢流程</text>
+  <rect x="350" y="839" width="157" height="35" rx="17" fill="#E9EEF2"/>
+  <text x="428" y="863" text-anchor="middle" class="lane" fill="#52616E">③ 共用管理機制</text>
+
+  <!-- Ingestion nodes -->
+  <rect x="420" y="355" width="335" height="145" rx="22" fill="#FFFFFF" stroke="#E87919" stroke-width="3"/>
+  <ellipse cx="470" cy="392" rx="22" ry="8" fill="#E87919"/>
+  <rect x="448" y="392" width="44" height="27" fill="#E87919"/>
+  <ellipse cx="470" cy="419" rx="22" ry="8" fill="#C75B08"/>
+  <text x="515" y="405" class="node-title">Amazon S3</text>
+  <text x="455" y="452" class="node-sub">Private Source Bucket</text>
+  <text x="455" y="479" class="node-small">incoming / processed / rejected</text>
+
+  <rect x="820" y="355" width="320" height="145" rx="22" fill="#FFFFFF" stroke="#E87919" stroke-width="3"/>
+  <circle cx="870" cy="403" r="24" fill="#E87919"/>
+  <text x="870" y="413" text-anchor="middle" font-size="31" font-weight="700" fill="#FFFFFF">λ</text>
+  <text x="914" y="405" class="node-title">Processor Lambda</text>
+  <text x="855" y="452" class="node-sub">解析、標準化、規則判定</text>
+  <text x="855" y="479" class="node-small">內容 Hash 防重複 · 錯誤隔離</text>
+
+  <rect x="1520" y="355" width="260" height="380" rx="24" fill="#FFFFFF" stroke="#087F8C" stroke-width="3"/>
+  <ellipse cx="1565" cy="402" rx="23" ry="9" fill="#087F8C"/>
+  <rect x="1542" y="402" width="46" height="28" fill="#087F8C"/>
+  <ellipse cx="1565" cy="430" rx="23" ry="9" fill="#05636C"/>
+  <text x="1605" y="415" class="node-title">DynamoDB</text>
+  <rect x="1550" y="470" width="200" height="92" rx="15" fill="#F5FAFA" stroke="#CCE5E4"/>
+  <text x="1570" y="504" font-size="18" font-weight="700">WorkOrders</text>
+  <text x="1570" y="535" class="node-sub">工單最新狀態</text>
+  <rect x="1550" y="583" width="200" height="112" rx="15" fill="#F5FAFA" stroke="#CCE5E4"/>
+  <text x="1570" y="617" font-size="17" font-weight="700">IngestionRecords</text>
+  <text x="1570" y="648" class="node-sub">成功、重複、失敗</text>
+  <text x="1570" y="675" class="node-small">TTL · On-Demand</text>
+
+  <!-- Query nodes -->
+  <rect x="420" y="625" width="240" height="145" rx="22" fill="#FFFFFF" stroke="#087F8C" stroke-width="3"/>
+  <circle cx="470" cy="672" r="24" fill="#087F8C"/>
+  <path d="M456 672h28M470 658v28M460 661c16 7 16 15 0 22M480 661c-16 7-16 15 0 22" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
+  <text x="515" y="676" class="node-title">CloudFront</text>
+  <text x="455" y="724" class="node-sub">HTTPS 管理看板入口</text>
+  <text x="455" y="751" class="node-small">Cache · Compression</text>
+
+  <rect x="700" y="625" width="240" height="145" rx="22" fill="#FFFFFF" stroke="#087F8C" stroke-width="3"/>
+  <ellipse cx="750" cy="667" rx="21" ry="8" fill="#087F8C"/>
+  <rect x="729" y="667" width="42" height="25" fill="#087F8C"/>
+  <ellipse cx="750" cy="692" rx="21" ry="8" fill="#05636C"/>
+  <text x="792" y="676" class="node-title">Frontend S3</text>
+  <text x="735" y="724" class="node-sub">Private Static SPA</text>
+  <text x="735" y="751" class="node-small">CloudFront OAC only</text>
+
+  <rect x="980" y="625" width="240" height="145" rx="22" fill="#FFFFFF" stroke="#087F8C" stroke-width="3"/>
+  <polygon points="1030,650 1054,664 1054,692 1030,706 1006,692 1006,664" fill="#087F8C"/>
+  <path d="M1018 678h24M1030 666v24" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <text x="1070" y="676" class="node-title">API Gateway</text>
+  <text x="1015" y="724" class="node-sub">HTTP API</text>
+  <text x="1015" y="751" class="node-small">GET /work-orders/*</text>
+
+  <rect x="1260" y="625" width="210" height="145" rx="22" fill="#FFFFFF" stroke="#087F8C" stroke-width="3"/>
+  <circle cx="1305" cy="672" r="24" fill="#087F8C"/>
+  <text x="1305" y="682" text-anchor="middle" font-size="31" font-weight="700" fill="#FFFFFF">λ</text>
+  <text x="1347" y="676" class="node-title">API Lambda</text>
+  <text x="1290" y="724" class="node-sub">查詢與文件連結</text>
+  <text x="1290" y="751" class="node-small">Pre-signed URL</text>
+
+  <!-- Flows: behind no cards, routed through clear gutters -->
+  <path d="M265 420H405" fill="none" stroke="#E87919" stroke-width="5" marker-end="url(#orange)"/>
+  <text x="333" y="402" text-anchor="middle" class="flow" fill="#B45309">上傳 .xlsx</text>
+  <path d="M755 428H805" fill="none" stroke="#E87919" stroke-width="5" marker-end="url(#orange)"/>
+  <text x="780" y="410" text-anchor="middle" class="flow" fill="#B45309">S3 Event</text>
+  <path d="M1140 428H1505" fill="none" stroke="#E87919" stroke-width="5" marker-end="url(#orange)"/>
+  <text x="1322" y="410" text-anchor="middle" class="flow" fill="#B45309">Transaction Write</text>
+
+  <path d="M265 680H405" fill="none" stroke="#087F8C" stroke-width="5" marker-end="url(#teal)"/>
+  <text x="333" y="662" text-anchor="middle" class="flow" fill="#087F8C">HTTPS</text>
+  <path d="M660 698H685" fill="none" stroke="#087F8C" stroke-width="5" marker-end="url(#teal)"/>
+  <path d="M660 735C750 805 900 805 980 735" fill="none" stroke="#087F8C" stroke-width="4" marker-end="url(#teal)"/>
+  <text x="820" y="810" text-anchor="middle" class="flow" fill="#087F8C">/api/*</text>
+  <path d="M1220 698H1245" fill="none" stroke="#087F8C" stroke-width="5" marker-end="url(#teal)"/>
+  <path d="M1470 698H1505" fill="none" stroke="#087F8C" stroke-width="5" marker-end="url(#teal)"/>
+  <path d="M1365 625V545C1110 520 780 520 590 500" fill="none" stroke="#087F8C" stroke-width="3" stroke-dasharray="8 7" marker-end="url(#teal)"/>
+  <text x="1020" y="540" text-anchor="middle" class="flow" fill="#087F8C">來源文件短效連結</text>
+
+  <!-- Shared management -->
+  <rect x="560" y="847" width="330" height="75" rx="17" fill="#FFFFFF" stroke="#C9D5DE" stroke-width="2"/>
+  <circle cx="600" cy="884" r="21" fill="#E4F4F4"/>
+  <path d="M588 884l8 8 16-19" fill="none" stroke="#087F8C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="635" y="881" class="gov-title">IAM 最小權限</text>
+  <text x="635" y="906" class="gov-sub">只開放 Lambda 所需的 S3 / DynamoDB 權限</text>
+
+  <rect x="930" y="847" width="330" height="75" rx="17" fill="#FFFFFF" stroke="#C9D5DE" stroke-width="2"/>
+  <circle cx="970" cy="884" r="21" fill="#E4F4F4"/>
+  <path d="M956 889h7l4-14 7 23 5-12h9" fill="none" stroke="#087F8C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1005" y="881" class="gov-title">CloudWatch Logs</text>
+  <text x="1005" y="906" class="gov-sub">記錄 Lambda 成功、重複與錯誤事件</text>
+
+  <rect x="1300" y="847" width="330" height="75" rx="17" fill="#FFFFFF" stroke="#C9D5DE" stroke-width="2"/>
+  <circle cx="1340" cy="884" r="21" fill="#E4F4F4"/>
+  <path d="M1328 876h24v18h-24zM1334 870h12v6h-12" fill="none" stroke="#087F8C" stroke-width="3"/>
+  <text x="1375" y="881" class="gov-title">AWS SAM</text>
+  <text x="1375" y="906" class="gov-sub">Validate · Build · Deploy · Delete</text>
+
+  <text x="65" y="1035" font-size="15" fill="#64748B">未納入本次專題：Route 53、WAF、Cognito、SQS / DLQ、X-Ray、CloudTrail；需要正式公開或多人使用時再評估。</text>
+  <text x="1855" y="1035" text-anchor="end" font-size="15" fill="#64748B">Material Receiving Dashboard · Recommended MVP Architecture</text>
+</svg>

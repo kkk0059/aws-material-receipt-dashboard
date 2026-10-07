@@ -1,0 +1,52 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Node and TypeScript
+node_modules/
+dist/
+dist-static/
+.next/
+.vinext/
+.wrangler/
+coverage/
+*.tsbuildinfo
+
+# AWS and deployment output
+.aws-sam/
+.sam-home/
+cdk.out/
+.serverless/
+
+# Local tools, evidence, and temporary output
+work/
+.pnpm-store/
+.ppt-review/
+.docx-review/
+.xlsx-review/
+transfer-packages/
+*.log
+*.tmp
+
+# Private source material and media
+private/
+company-data/
+data/raw/
+*.xlsm
+*.xlsb
+*.mp4
+*.mov
+*.mkv
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

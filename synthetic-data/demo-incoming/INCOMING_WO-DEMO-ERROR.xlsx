@@ -1,0 +1,1 @@
+This deliberately invalid synthetic test file is used only to verify that the AWS Processor Lambda moves rejected files to rejected/ and emits a structured CloudWatch failure log.

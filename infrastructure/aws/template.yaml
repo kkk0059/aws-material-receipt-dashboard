@@ -1,0 +1,341 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Material receiving dashboard AWS prototype (synthetic data only)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: material-dashboard-demo
+    AllowedPattern: '^[a-z0-9-]+$'
+    MaxLength: 25
+  StageName:
+    Type: String
+    Default: demo
+    AllowedValues: [demo]
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30]
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Architectures: [arm64]
+    Environment:
+      Variables:
+        WORK_ORDERS_TABLE: !Ref WorkOrdersTable
+        INGESTION_RECORDS_TABLE: !Ref IngestionRecordsTable
+        SOURCE_BUCKET: !Sub '${ProjectName}-${AWS::AccountId}-${AWS::Region}-source'
+        SYNTHETIC_ONLY: 'true'
+
+Resources:
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BucketName: !Sub '${ProjectName}-${AWS::AccountId}-${AWS::Region}-source'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireNoncurrentDemoVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 7
+          - Id: ExpireRejectedDemoFiles
+            Status: Enabled
+            Prefix: rejected/
+            ExpirationInDays: 14
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  FrontendOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-frontend-oac'
+        Description: Signed CloudFront access to the private dashboard bucket.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${ProjectName}-frontend-cache'
+        Comment: Cache static dashboard assets; deployments issue an invalidation.
+        DefaultTTL: 3600
+        MaxTTL: 31536000
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub '${ProjectName} synthetic-data dashboard'
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_200
+        Origins:
+          - Id: FrontendS3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt FrontendOriginAccessControl.Id
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: !Ref FrontendCachePolicy
+          Compress: true
+          TargetOriginId: FrontendS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}'
+
+  WorkOrdersTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: work_order
+          AttributeType: S
+      KeySchema:
+        - AttributeName: work_order
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+
+  IngestionRecordsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: record_id
+          AttributeType: S
+        - AttributeName: work_order
+          AttributeType: S
+        - AttributeName: imported_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: record_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: WorkOrderImportedAtIndex
+          KeySchema:
+            - AttributeName: work_order
+              KeyType: HASH
+            - AttributeName: imported_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  DashboardHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref StageName
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+        MaxAge: 600
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-processor'
+      CodeUri: ../../apps/dashboard
+      Handler: aws/processor-handler.handler
+      Description: Parse synthetic material workbooks and update canonical work order state.
+      MemorySize: 1024
+      Timeout: 60
+      # Do not reserve account concurrency in the training account. Its Lambda
+      # quota retains a mandatory unreserved pool of 10, so any reservation is
+      # rejected before the function can be created.
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub '${ProjectName}-${AWS::AccountId}-${AWS::Region}-source'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WorkOrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IngestionRecordsTable
+      Events:
+        SyntheticWorkbookUploaded:
+          Type: S3
+          Properties:
+            Bucket: !Ref SourceBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: incoming/
+                  - Name: suffix
+                    Value: .xlsx
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - aws/processor-handler.ts
+        Minify: true
+        Sourcemap: true
+        Target: es2022
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-api'
+      CodeUri: ../../apps/dashboard
+      Handler: aws/api-handler.handler
+      Description: Read dashboard data, create synthetic demo workbooks, and generate short-lived source document links.
+      MemorySize: 1024
+      Timeout: 60
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref WorkOrdersTable
+        - S3CrudPolicy:
+            BucketName: !Sub '${ProjectName}-${AWS::AccountId}-${AWS::Region}-source'
+      Events:
+        ListWorkOrders:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DashboardHttpApi
+            Path: /work-orders
+            Method: GET
+        GetWorkOrder:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DashboardHttpApi
+            Path: /work-orders/{workOrder}
+            Method: GET
+        OpenSourceDocument:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DashboardHttpApi
+            Path: /work-orders/{workOrder}/source-document
+            Method: GET
+        GenerateDemoWorkbook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref DashboardHttpApi
+            Path: /demo/generate
+            Method: POST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - aws/api-handler.ts
+        Minify: true
+        Sourcemap: true
+        Target: es2022
+
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProcessorFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ApiFunction}'
+      RetentionInDays: !Ref LogRetentionDays
+
+Outputs:
+  SourceBucketName:
+    Description: Upload synthetic .xlsx files to the incoming/ prefix only.
+    Value: !Ref SourceBucket
+  DashboardApiUrl:
+    Description: HTTP API base URL.
+    Value: !Sub 'https://${DashboardHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}'
+  FrontendBucketName:
+    Description: Upload apps/dashboard/dist-static contents to this private bucket.
+    Value: !Ref FrontendBucket
+  FrontendDistributionId:
+    Value: !Ref FrontendDistribution
+  DashboardUrl:
+    Description: HTTPS URL for the static material receiving dashboard.
+    Value: !Sub 'https://${FrontendDistribution.DomainName}'
+  WorkOrdersTableName:
+    Value: !Ref WorkOrdersTable
+  IngestionRecordsTableName:
+    Value: !Ref IngestionRecordsTable

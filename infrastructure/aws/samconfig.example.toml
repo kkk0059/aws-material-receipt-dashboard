@@ -1,0 +1,10 @@
+version = 0.1
+
+[demo.deploy.parameters]
+stack_name = "material-dashboard-demo"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+fail_on_empty_changeset = false
+parameter_overrides = "ProjectName=material-dashboard-demo StageName=demo AllowedOrigin=* LogRetentionDays=14"
+tags = "Project=MaterialDashboard Environment=Demo DataClass=Synthetic"

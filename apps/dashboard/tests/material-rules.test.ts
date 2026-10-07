@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { evaluateMaterial } from '../lib/material-rules.ts';
+const normal = { workOrder:'WO-DEMO-TEST', fileVersion:'current' as const, sourceState:'in_progress' as const, operator:'OP-DEMO', confirmationTime:'2026-08-25 10:00', requiredPn:10, receivedPn:10, pnDifference:0, receiptQty:100, issueQty:100, qtyDifference:0, shortageCount:0, extraPnCount:0, actualReceiptQtyDiffCount:0, lastUpdated:'2026-08-25 10:01' };
+test('completed when all values match', () => assert.equal(evaluateMaterial(normal).receiptStatus, 'completed'));
+test('shortage has highest priority', () => assert.equal(evaluateMaterial({ ...normal, shortageCount:1, extraPnCount:1, qtyDifference:5 }).receiptStatus, 'shortage'));
+test('legacy extra PN requires review', () => assert.equal(evaluateMaterial({ ...normal, fileVersion:'legacy', extraPnCount:1 }).receiptStatus, 'review_required'));
+test('100 percent progress can still have quantity difference', () => { const result=evaluateMaterial({ ...normal, qtyDifference:-5 }); assert.equal(result.completionRate,100); assert.equal(result.receiptStatus,'quantity_difference'); assert.equal(result.actionRequired,true); });
+test('archived legacy missing metadata is recorded but not actionable', () => { const result=evaluateMaterial({ ...normal, fileVersion:'legacy', sourceState:'archived', operator:null, confirmationTime:null }); assert.equal(result.dataQualityStatus,'legacy_incomplete'); assert.equal(result.actionRequired,false); });
+test('current missing metadata requires action', () => assert.equal(evaluateMaterial({ ...normal, operator:null }).actionRequired,true));
